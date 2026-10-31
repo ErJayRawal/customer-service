@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: customer-service
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - customer-service.yaml
+configMapGenerator:
+  - name: customer-service-config
+    literals:
+      - oidc-auth-server-url=http://keycloak.order-service.svc.cluster.local:8080/realms/orders
+      - oidc-token-issuer=http://localhost:8180/realms/orders
+      - oidc-jwks-path=/protocol/openid-connect/certs
