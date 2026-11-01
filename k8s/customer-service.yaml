@@ -47,7 +47,7 @@ spec:
               containerPort: 8080
           env:
             - name: DB_JDBC_URL
-              value: jdbc:postgresql://customer-postgres.customer-service.svc.cluster.local:5432/customers
+              value: jdbc:postgresql://customer-postgres.e-commerce-platform.svc.cluster.local:5432/customers
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:

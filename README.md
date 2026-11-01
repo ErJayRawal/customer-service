@@ -45,7 +45,7 @@ Configure OIDC discovery with `OIDC_AUTH_SERVER_URL`, the JWKS endpoint path wit
 
 ## Deploy to Docker Desktop Kubernetes
 
-This local setup uses a dedicated PostgreSQL StatefulSet and PVC in the `customer-service` namespace. It is a single-node development deployment, not a highly available production setup. Create the local database Secret once without committing credentials:
+This local setup uses a dedicated PostgreSQL StatefulSet and PVC in the shared `e-commerce-platform` namespace. It is a single-node development deployment, not a highly available production setup. Create the local database Secret once without committing credentials:
 
 ```powershell
 $passwordFile = [System.IO.Path]::GetTempFileName()
@@ -53,8 +53,8 @@ try {
   $bytes = New-Object byte[] 32
   [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
   [System.IO.File]::WriteAllText($passwordFile, [Convert]::ToBase64String($bytes))
-  kubectl create namespace customer-service
-  kubectl create secret generic customer-db-credentials --namespace customer-service `
+  kubectl create namespace e-commerce-platform --dry-run=client -o yaml | kubectl apply -f -
+  kubectl create secret generic customer-db-credentials --namespace e-commerce-platform `
     --from-literal=username=customer_service --from-file=password=$passwordFile
 }
 finally {
@@ -69,14 +69,14 @@ Build and deploy the independent service:
 .\mvnw.cmd verify
 docker build -f src/main/docker/Dockerfile.jvm -t customer-service:local .
 kubectl apply -k k8s
-kubectl rollout status statefulset/customer-postgres --namespace customer-service
-kubectl rollout status deployment/customer-service --namespace customer-service
-kubectl port-forward service/customer-service 8090:80 --namespace customer-service
+kubectl rollout status statefulset/customer-postgres --namespace e-commerce-platform
+kubectl rollout status deployment/customer-service --namespace e-commerce-platform
+kubectl port-forward service/customer-service 8090:80 --namespace e-commerce-platform
 ```
 
-Customer Service is available at `http://localhost:8090`. It discovers the existing Keycloak service in the `order-service` namespace; the required external token issuer remains `http://localhost:8180/realms/orders`. The deployment expects the Keycloak access token to contain the `customer-service` audience.
+Customer Service is available at `http://localhost:8090`. It discovers Keycloak inside the shared namespace; the required external token issuer remains `http://localhost:8180/realms/orders`. The deployment expects the Keycloak access token to contain the `customer-service` audience.
 
-For the local Keycloak in the sibling `order-service` project, the realm's development client currently issues an `order-service` audience. Before calling this service with those tokens, add `customer-service` as an allowed audience using a Keycloak audience mapper for the local test client, then verify the access token's `aud` claim. Keep the two service repositories independent; the Customer Service UUID mapping is not yet wired into Order Service, which continues using its current customer identifier until a coordinated migration is designed and tested.
+The local Keycloak development client issues both the `order-service` and `customer-service` audiences so its tokens can be used with either API. The realm import configures both audience mappers for fresh deployments; when updating an existing realm, add the `customer-service` audience mapper through Keycloak's Admin Console or Admin REST API because realm imports do not reconcile persisted realms. Keep the two service repositories independent; the Customer Service UUID mapping is not yet wired into Order Service, which continues using its current customer identifier until a coordinated migration is designed and tested.
 
 ## Data ownership and integration boundary
 
